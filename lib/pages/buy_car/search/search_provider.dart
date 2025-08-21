@@ -129,97 +129,141 @@ class SearchProvider extends ChangeNotifier {
     this.listingId = listingId;
     notifyListeners();
   }
+  void resetForSearchPage({bool clearList = true}) {
+    if (clearList) {
+      searchController.text = "";
+      showMap = false;
+      pageNum = 1;
+      apiCarList.clear();
+      originalCarList.clear();
+      featuredCarList.clear();
+      searchCarList.clear();
+      cachedCarList?.clear();
+      searchPage = 1;
+      hasMoreSearchResults = true;
+      isLoading = true;
+    }else {
+      isLoading = false;
+    }
+  }
 
   int pageNum = 1;
   String? apiLanguage;
+  int currentPage = 1;
+  int totalPages = 1;
+  Map<int, List<CarListing>> _pageCache = {};
+
   Future<void> fetchCarListings({
     bool forceRefresh = false,
     String? brandSlug,
     Map<String, dynamic>? filters,
     bool loadMore = false,
     bool runAPI = true,
+    int? page,
   }) async {
-    apiLanguage  = await getApiLanguage();
-    debugPrint("Filters +++++++++++ $filters");
-    print("fetchCarListings called with selectedSortIndex: $selectedSortIndex");
-    debugPrint("API Language: $apiLanguage");
-    if (forceRefresh) {
-      apiCarList.clear();
-      cachedCarList?.clear();
-      // originalCarList.clear();
-      _currentPage = 1;
-      hasMoreData = true;
-      featuredCarList.clear();
-    }
+    if (page != null) _currentPage = page;
+
+
+    apiLanguage = await getApiLanguage();
+    loadMore ? isLoadingMore = true : isLoading = true;
+    notifyListeners();
+
+
     try {
-      if (!loadMore) {
-        isLoading = true;
-        notifyListeners();
-      } else {
-        isLoadingMore = true;
-        notifyListeners();
-      }
       final sortBy = _getSortByParam(selectedSortIndex);
-      debugPrint("Sort By +++++++++ $sortBy");
-      final String url = await _buildUrl(
+
+
+      final url = await _buildUrl(
         brandSlug: brandSlug ?? brandSlugSelected,
         filters: filters,
         sortBy: sortBy,
         page: _currentPage,
         loadMore: loadMore,
-        lang: apiLanguage??"th",
+        lang: apiLanguage ?? "th",
       );
 
-      log('🌐 Fetching car listings with URL: $url');
-      log('fetchCarListings called with selectedSortIndex: $selectedSortIndex');
+
+      log('🌐 Fetching car listings: $url');
+
+
       final response = await http.get(Uri.parse(url));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final List<dynamic> results = data['results'] ?? [];
-        log("$loadMore");
-        if (loadMore) {
-          apiCarList.addAll(results.map((e) => CarListing.fromJson(e)).toList());
-        } else {
-          apiCarList = results.map((e) => CarListing.fromJson(e)).toList();
-        }
-
-        debugPrint("First Data +++++++++++ ${originalCarList.length}");
-
-        /*     apiCarList.sort((a, b) {
-          if (a.isFeatured == b.isFeatured) {
-            return 0;
-          }
-          return a.isFeatured ? -1 : 1;
-        });
-*/
-        final ids = apiCarList.map((e) => e.id).toSet();
-        debugPrint("Unique IDs: ${ids.length}, Total Items: ${apiCarList.length}");
-
-        cachedCarList = apiCarList;
-        originalCarList = List.from(apiCarList);
-
-        //  sortCarList(selectedSortIndex); // Apply default sorting if no sort index is set
-        final currentPage = data['pagination']['current_page'];
-        final totalPages = data['pagination']['total_pages'];
-
-        hasMoreData = currentPage < totalPages;
-        if (hasMoreData) {
-          _currentPage = currentPage + 1;
-          pageNum = _currentPage - 1;  // Always keep pageNum one less than _currentPage
-        }
-      } else {
+      if (response.statusCode != 200) {
         log('❌ Failed to fetch car listings: Status ${response.statusCode}');
         apiCarList = [];
+        return;
       }
+
+
+      final data = jsonDecode(response.body);
+      final results = (data['results'] ?? [])
+          .map<CarListing>((e) => CarListing.fromJson(e))
+          .toList();
+
+
+      if (loadMore) {
+        apiCarList.addAll(results);
+      } else {
+        apiCarList = results;
+      }
+
+
+      currentPage = data['pagination']['current_page'] ?? 1;
+      totalPages = data['pagination']['total_pages'] ?? 1;
+      hasMoreData = currentPage < totalPages;
+
+
     } finally {
-      debugPrint("WORKING");
       isLoading = false;
       isLoadingMore = false;
       notifyListeners();
-      debugPrint("HERE IS API CAR LIST LENGTH:${apiCarList.length}");
     }
   }
+
+
+  void previousPage(String? brandSlug, {Map<String, dynamic>? filters}) {
+    if (_currentPage > 1) {
+      _currentPage--;
+      fetchCarListings(
+        page: _currentPage,
+        brandSlug: brandSlug,
+        filters: filters,
+        runAPI: true,
+      );
+    }
+  }
+
+
+
+  void nextPage(String? brandSlug, {Map<String, dynamic>? filters}) {
+    if (_currentPage < totalPages) {
+      _currentPage++;
+      fetchCarListings(
+        page: _currentPage,
+        brandSlug: brandSlug,
+        filters: filters,
+        runAPI: true,
+      );
+    }
+  }
+
+  void goToPage(int pageNum, String? brandSlug, {Map<String, dynamic>? filters}) {
+    _currentPage = pageNum;       // 👈 update immediately
+    notifyListeners();            // 👈 refresh UI instantly
+
+    fetchCarListings(
+      page: pageNum,
+      brandSlug: brandSlug,
+      filters: filters,
+      runAPI: true,
+    );
+  }
+
+  void resetPage() {
+    _currentPage = 1;
+    currentPage = 1;
+  }
+
+
 
   //filter by search
   TextEditingController searchController = TextEditingController();

@@ -8,5 +8,4 @@ build/
 .macos
 windows/
 linux/
-lib/services/get_server_key.dart
 .env

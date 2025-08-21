@@ -503,7 +503,7 @@ class _ComparePageState extends State<ComparePage> {
                               child: Text(
                                 car.title,
                                 textAlign: TextAlign.center,
-                                maxLines: 2,
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w600),

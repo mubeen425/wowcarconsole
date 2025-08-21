@@ -8,6 +8,7 @@ import 'package:google_maps_cluster_manager/google_maps_cluster_manager.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../models/car_listing_model.dart';
+import '../../buy_car/search/search_page.dart';
 import 'car_cluster_model.dart';
 
 class CarMapScreen extends StatefulWidget {
@@ -113,7 +114,24 @@ class _CarMapScreenState extends State<CarMapScreen> {
       markerId: MarkerId(cluster.getId()),
       position: cluster.location,
       icon: icon,
-      // no infoWindow, no onTap, no image
+        onTap: () {
+          showModalBottomSheet(
+              isScrollControlled: true,
+              useSafeArea: true,
+              enableDrag: true,
+              showDragHandle: true,
+              constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height* 0.8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              context: context,
+              builder: (context) {
+                final carListFromMap = cluster.items.map((item) => item.car).toList();
+                return SearchPage(
+                  isMapScreen: true,
+                  carsListFromMap: carListFromMap,
+                );
+              });
+        }
+
     );
   }
 
