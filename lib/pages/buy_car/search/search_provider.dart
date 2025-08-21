@@ -106,7 +106,6 @@ class SearchProvider extends ChangeNotifier {
   }
 
   int selectedSortIndex = 0;
-  int _currentPage = 1;
   String? brandSlugSelected;
   void getBrandSlug(String? slg) {
     brandSlugSelected = slg;
@@ -151,7 +150,6 @@ class SearchProvider extends ChangeNotifier {
   String? apiLanguage;
   int currentPage = 1;
   int totalPages = 1;
-  Map<int, List<CarListing>> _pageCache = {};
 
   Future<void> fetchCarListings({
     bool forceRefresh = false,
@@ -161,57 +159,44 @@ class SearchProvider extends ChangeNotifier {
     bool runAPI = true,
     int? page,
   }) async {
-    if (page != null) _currentPage = page;
-
-
+    if (page != null) {
+      currentPage = page;
+    } else {
+      currentPage = 1;
+    }
     apiLanguage = await getApiLanguage();
     loadMore ? isLoadingMore = true : isLoading = true;
     notifyListeners();
-
-
     try {
       final sortBy = _getSortByParam(selectedSortIndex);
-
-
       final url = await _buildUrl(
         brandSlug: brandSlug ?? brandSlugSelected,
         filters: filters,
         sortBy: sortBy,
-        page: _currentPage,
+        page: currentPage,
         loadMore: loadMore,
         lang: apiLanguage ?? "th",
       );
-
-
       log('🌐 Fetching car listings: $url');
-
-
       final response = await http.get(Uri.parse(url));
       if (response.statusCode != 200) {
         log('❌ Failed to fetch car listings: Status ${response.statusCode}');
         apiCarList = [];
         return;
       }
-
-
       final data = jsonDecode(response.body);
-      final results = (data['results'] ?? [])
-          .map<CarListing>((e) => CarListing.fromJson(e))
-          .toList();
-
-
+      final results = (data['results'] ?? []).map<CarListing>((e) => CarListing.fromJson(e)).toList();
       if (loadMore) {
         apiCarList.addAll(results);
       } else {
         apiCarList = results;
       }
-
-
       currentPage = data['pagination']['current_page'] ?? 1;
       totalPages = data['pagination']['total_pages'] ?? 1;
+      if (currentPage > totalPages) {
+        currentPage = totalPages;
+      }
       hasMoreData = currentPage < totalPages;
-
-
     } finally {
       isLoading = false;
       isLoadingMore = false;
@@ -219,12 +204,11 @@ class SearchProvider extends ChangeNotifier {
     }
   }
 
-
   void previousPage(String? brandSlug, {Map<String, dynamic>? filters}) {
-    if (_currentPage > 1) {
-      _currentPage--;
+    if (currentPage > 1) {
+      currentPage--;
       fetchCarListings(
-        page: _currentPage,
+        page: currentPage,
         brandSlug: brandSlug,
         filters: filters,
         runAPI: true,
@@ -232,13 +216,11 @@ class SearchProvider extends ChangeNotifier {
     }
   }
 
-
-
   void nextPage(String? brandSlug, {Map<String, dynamic>? filters}) {
-    if (_currentPage < totalPages) {
-      _currentPage++;
+    if (currentPage < totalPages) {
+      currentPage++;
       fetchCarListings(
-        page: _currentPage,
+        page: currentPage,
         brandSlug: brandSlug,
         filters: filters,
         runAPI: true,
@@ -247,9 +229,7 @@ class SearchProvider extends ChangeNotifier {
   }
 
   void goToPage(int pageNum, String? brandSlug, {Map<String, dynamic>? filters}) {
-    _currentPage = pageNum;       // 👈 update immediately
-    notifyListeners();            // 👈 refresh UI instantly
-
+    currentPage = pageNum;
     fetchCarListings(
       page: pageNum,
       brandSlug: brandSlug,
@@ -259,11 +239,8 @@ class SearchProvider extends ChangeNotifier {
   }
 
   void resetPage() {
-    _currentPage = 1;
     currentPage = 1;
   }
-
-
 
   //filter by search
   TextEditingController searchController = TextEditingController();
@@ -878,16 +855,22 @@ class SearchProvider extends ChangeNotifier {
       Map<String, dynamic> filters, {
         bool forceRefresh = true,
         bool loadMore = false,
+        int page = 1,
       }) async {
     print("Filters $filters");
     if(showMap){
       searchController.text ="";
     }
+    if (!loadMore) {
+      currentPage = page;
+    }
     await fetchCarListings(
         forceRefresh: forceRefresh,
         filters: filters,
         loadMore: loadMore,
-        runAPI: false);
+        runAPI: false,
+      page: currentPage,
+    );
   }
 
   Future<void> fetchWishlist() async {
@@ -1579,6 +1562,7 @@ class SearchProvider extends ChangeNotifier {
   }
 
   void setFuelType(bool isSelected, String value) {
+    currentPage = 1;
     if (value == 'Any') {
       // If "Any" tapped, select only "Any"
       selectedFuelTypes.clear();
@@ -1621,7 +1605,7 @@ class SearchProvider extends ChangeNotifier {
   void onCompleteApplyFilters() {
     // Cancel any pending filter operations to avoid multiple calls
     _filterDebounceTimer?.cancel();
-
+    currentPage= 1;
     // Start a new timer to apply filters after a short delay
     _filterDebounceTimer = Timer(const Duration(milliseconds: 400), () {
       applyAllFilters();
@@ -1753,6 +1737,7 @@ class SearchProvider extends ChangeNotifier {
     debugPrint('🔧 setCarMakes(): tapped ${value.name}, isSelected=$isSelected');
     _filterDebounceTimer?.cancel();
     loadingMake = true; // Start loading state
+    currentPage = 1;
     // If "Any" is selected, reset all selections
     if (value.name == 'Any') {
       _selectedBrand = [carMake];
@@ -1853,6 +1838,7 @@ class SearchProvider extends ChangeNotifier {
   }
 
   void setCarModels(bool isSelected, String model) {
+    currentPage = 1;
     // filterModel(model);
     if (model == "Any") {
       selectedModels = ["Any"]; // Use List here, not Set

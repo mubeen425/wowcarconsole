@@ -4,7 +4,6 @@ import 'package:fl_carmax/utils/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:sizer/sizer.dart';
 
 import '../../../helper/language_constant.dart';
 import '../../../models/car_listing_model.dart';
@@ -96,7 +95,6 @@ class _SearchPageState extends State<SearchPage> {
         return WillPopScope(
           onWillPop: () async {
             if(widget.isMapScreen == false) {
-             // provider.currentPage = 1;
               provider.resetPage();
               provider.searchController.clear();
               await provider.resetFilters(fromBack: 0);
@@ -162,7 +160,7 @@ class _SearchPageState extends State<SearchPage> {
           icon: const Icon(Icons.arrow_back, color: black),
           onPressed: () async {
             Navigator.pop(context);
-            provider.currentPage = 1;
+            provider.resetPage();
             provider.searchController.clear();
             await provider.resetFilters(fromBack: 0);
           },
